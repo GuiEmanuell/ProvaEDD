@@ -1,118 +1,131 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <stdbool.h>
 
 #define maxSensores 100
-#define maxLeituras 1000
-#define ID_tam 64
-#define valorTam 64
+#define maxNome 64
+#define quantidadeLeituras 2000
 
-typedef enum {tipoInt, tipoFloat, tipoBoolean, tipoString } TipoValor;
-
-typedef struct {
-    long timestamp;
-    char valor[valorTam];
-} Leitura;
+typedef enum { tipoInt, tipoFloat, tipoBoolean, tipoString } Tipo;
 
 typedef struct {
-    char id[ID_tam];
-    TipoValor tipo;
-    Leitura leituras[maxLeituras];
-    int total;
+    char nome[maxNome];
+    Tipo tipo;
 } Sensor;
 
-Sensor sensores[maxSensores];
-int totalSensores = 0;
-
-TipoValor identificarTipo(const char *valor) {
-    if (strcmp(valor, "true") == 0 || strcmp(valor, "false") == 0)
-        return tipoBoolean;
-
-    char *end;
-    strtol(valor, &end, 10);
-    if (*end == '\0') return tipoInt;
-
-    strtod(valor, &end);
-    if (*end == '\0') return tipoFloat;
-
-    return tipoString;
+bool data_valida(int dia, int mes, int ano, int hora, int min, int seg) {
+    if (ano < 1970 || mes < 1 || mes > 12 || dia < 1 || dia > 31 ||
+        hora < 0 || hora > 23 || min < 0 || min > 59 || seg < 0 || seg > 59)
+        return false;
+    int dias_mes[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    if (dia > dias_mes[mes-1]) return false;
+    return true;
 }
 
-Sensor* CriarSensor(const char *id, const char *valor) {
-    for (int i = 0; i < totalSensores; i++) {
-        if (strcmp(sensores[i].id, id) == 0)
-            return &sensores[i];
-    }
-
-    if (totalSensores >= maxSensores) {
-        fprintf(stderr, "Erro: muitos sensores\n");
-        exit(1);
-    }
-
-    Sensor *novo = &sensores[totalSensores++];
-    strcpy(novo->id, id);
-    novo->tipo = identificarTipo(valor);
-    novo->total = 0;
-    return novo;
+time_t converterDataHora(const char *dataHora) {
+    int dia, mes, ano, hora, min, seg;
+    struct tm t;
+    if (sscanf(dataHora, "%d/%d/%d %d:%d:%d", &dia, &mes, &ano, &hora, &min, &seg) != 6)
+        return -1;
+    if (!data_valida(dia, mes, ano, hora, min, seg))
+        return -1;
+    t.tm_year = ano - 1900;
+    t.tm_mon = mes - 1;
+    t.tm_mday = dia;
+    t.tm_hour = hora;
+    t.tm_min = min;
+    t.tm_sec = seg;
+    t.tm_isdst = -1;
+    return mktime(&t);
 }
 
-int comparartimestamp (const void *a, const void *b) {
-    return ((Leitura *)a)->timestamp - ((Leitura *)b)->timestamp;
+
+void gerarTexto(char *destino, int max) {
+    int tamanho = rand() % (max - 3) + 4;
+    for (int i = 0; i < tamanho; i++) {
+        destino[i] = 'A' + rand() % 26;
+    }
+    destino[tamanho] = '\0';
 }
 
-void processarArquivo(const char *nome) {
-    FILE *arquivo = fopen(nome, "r");
-    if (!arquivo) {
-        perror("Erro ao abrir o arquivo");
-        exit(1);
-    }
+Tipo tipoNome(const char *tipoStr) {
+    if (strcmp(tipoStr, "int") == 0) return tipoInt;
+    if (strcmp(tipoStr, "float") == 0) return tipoFloat;
+    if (strcmp(tipoStr, "bool") == 0) return tipoBoolean;
+    if (strcmp(tipoStr, "string") == 0) return tipoString;
 
-    char linha[256];
-    while (fgets(linha, sizeof(linha), arquivo)) {
-        long timestamp;
-        char id[ID_tam], valor[valorTam];
-
-        if (sscanf(linha, "%ld %s %s", &timestamp, id, valor) != 3) {
-            fprintf(stderr, "Linha ignorada: formato invalido: %s", linha);
-            continue;
-        }
-
-        Sensor *s = CriarSensor(id, valor);
-        if (s->total >= maxLeituras) continue;
-
-        s->leituras[s->total].timestamp = timestamp;
-        strcpy(s->leituras[s->total].valor, valor);
-        s->total++;
-    }
-
-    fclose(arquivo);
+    printf("Tipo desconhecido: %s\n", tipoStr);
+    exit(1);
 }
 
-void salvarSensor() { 
-    for (int i = 0; i < totalSensores; i++) {
-        Sensor *s = &sensores[i];
-        qsort(s->leituras, s->total, sizeof(Leitura), comparartimestamp );
+void gerarLeitura(FILE *arquivo, const char *nome, Tipo tipo, time_t inicio, time_t fim) {
+    time_t ts = inicio + rand() % (fim - inicio + 1);
+    char valor[64];
 
-        char nomeArquivo[128];
-        sprintf(nomeArquivo, "sensor_%s.txt", s->id);
-        FILE *out = fopen(nomeArquivo, "w");
-
-        for (int j = 0; j < s->total; j++)
-            fprintf(out, "%ld %s\n", s->leituras[j].timestamp, s->leituras[j].valor);
-
-        fclose(out);
-        printf(">> Arquivo criado: %s\n", nomeArquivo);
+    switch (tipo) {
+        case tipoInt:
+            sprintf(valor, "%d", rand() % 10000);
+            break;
+        case tipoFloat:
+            sprintf(valor, "%.2f", (float)(rand() % 100000) / 100.0);
+            break;
+        case tipoBoolean:
+            sprintf(valor, "%s", rand() % 2 ? "true" : "false");
+            break;
+        case tipoString:
+            gerarTexto(valor, 16);
+            break;
     }
+
+    fprintf(arquivo, "%ld %s %s\n", ts, nome, valor);
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("Uso: %s <arquivo_entrada>\n", argv[0]);
+    if (argc < 4) {
+        printf("Uso: %s \"data_inicio\" (dd/mm/aaaa) \"data_fim\" (dd/mm/aaaa) sensor1:tipo [sensor2:tipo ...]\n", argv[0]);
         return 1;
     }
 
-    processarArquivo(argv[1]);
-    salvarSensor();
+    srand(time(NULL)); 
+
+    time_t inicio = converterDataHora(argv[1]);
+    time_t fim = converterDataHora(argv[2]);
+    if (fim <= inicio) {
+        printf("Erro: data final deve ser apos a data inicial.\n");
+        return 1;
+    }
+
+    Sensor sensores[maxSensores];
+    int totalSensores = 0;
+
+    for (int i = 3; i < argc; i++) {
+        char *divisor = strchr(argv[i], ':');
+        if (!divisor) {
+            printf("Erro: sensor deve estar no formato nome:tipo\n");
+            return 1;
+        }
+
+        *divisor = '\0'; 
+        strcpy(sensores[totalSensores].nome, argv[i]);
+        sensores[totalSensores].tipo = tipoNome(divisor + 1);
+        totalSensores++;
+    }
+
+    FILE *arquivo = fopen("leituras_geradas.txt", "w");
+    if (!arquivo) {
+        perror("Erro ao abrir o arquivo de saida");
+        return 1;
+    }
+
+    for (int i = 0; i < totalSensores; i++) {
+        for (int j = 0; j < quantidadeLeituras; j++) {
+            gerarLeitura(arquivo, sensores[i].nome, sensores[i].tipo, inicio, fim);
+        }
+    }
+
+    fclose(arquivo);
+    printf("Arquivo 'leituras_geradas.txt' criado com sucesso!\n");
     return 0;
 }
