@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
 
 #define maxSensores 100
 #define maxNome 64
@@ -14,24 +15,29 @@ typedef struct {
     Tipo tipo;
 } Sensor;
 
+bool data_valida(int dia, int mes, int ano, int hora, int min, int seg) {
+    if (ano < 1970 || mes < 1 || mes > 12 || dia < 1 || dia > 31 ||
+        hora < 0 || hora > 23 || min < 0 || min > 59 || seg < 0 || seg > 59)
+        return false;
+    int dias_mes[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    if (dia > dias_mes[mes-1]) return false;
+    return true;
+}
 
 time_t converterDataHora(const char *dataHora) {
+    int dia, mes, ano, hora, min, seg;
     struct tm t;
-    int ano, mes, dia, hora, minuto, segundo;
-
-    if (sscanf(dataHora, "%d-%d-%d %d:%d:%d", &ano, &mes, &dia, &hora, &minuto, &segundo) != 6) {
-        fprintf(stderr, "Erro ao ler data/hora: %s\n", dataHora);
-        exit(1);
-    }
-
+    if (sscanf(dataHora, "%d/%d/%d %d:%d:%d", &dia, &mes, &ano, &hora, &min, &seg) != 6)
+        return -1;
+    if (!data_valida(dia, mes, ano, hora, min, seg))
+        return -1;
     t.tm_year = ano - 1900;
     t.tm_mon = mes - 1;
     t.tm_mday = dia;
     t.tm_hour = hora;
-    t.tm_min = minuto;
-    t.tm_sec = segundo;
-    t.tm_isdst = -1; 
-
+    t.tm_min = min;
+    t.tm_sec = seg;
+    t.tm_isdst = -1;
     return mktime(&t);
 }
 
@@ -78,7 +84,7 @@ void gerarLeitura(FILE *arquivo, const char *nome, Tipo tipo, time_t inicio, tim
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {
-        printf("Uso: %s \"data_inicio\" \"data_fim\" sensor1:tipo [sensor2:tipo ...]\n", argv[0]);
+        printf("Uso: %s \"data_inicio\" (dd/mm/aaaa) \"data_fim\" (dd/mm/aaaa) sensor1:tipo [sensor2:tipo ...]\n", argv[0]);
         return 1;
     }
 
