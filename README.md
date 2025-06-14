@@ -69,26 +69,7 @@ Permite consultar a leitura de um sensor mais próxima de um timestamp informado
 
 ---
 
-## Fluxo de Uso
 
-1. **Gerar dados de teste:**  
-   Execute `geracao.c` para criar o arquivo de leituras.
-
-2. **Organizar os dados:**  
-   Execute `organizar.c` para separar e ordenar os dados por sensor.
-
-3. **Consultar leituras:**  
-   Execute `consulta.c` para buscar a leitura mais próxima de um instante desejado para um sensor específico.
-
----
-
-## Observações
-
-- Os programas devem ser compilados com um compilador C padrão (ex: GCC).
-- Os arquivos de entrada e saída devem estar no mesmo diretório dos executáveis.
-- Os tipos de sensores devem ser informados corretamente para evitar erros de execução.
-
----
 
 ## Exemplo de Execução Completa
 
@@ -104,6 +85,3 @@ gcc consulta.c -o consulta
 
 ---
 
-## Autoria
-
-Projeto desenvolvido para fins acadêmicos, simulação e estudo de manipulação de arquivos e algoritmos de busca em C.
